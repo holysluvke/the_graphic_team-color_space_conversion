@@ -206,7 +206,68 @@ def task_1(image: np.ndarray) -> None:
 # Задание 2
 
 
+def task2(image_path):
+    image = Image.open(image_path).convert("RGB")
+    img = np.array(image)
 
+    R = img[:, :, 0]
+    G = img[:, :, 1]
+    B = img[:, :, 2]
+
+    
+    red_image = np.zeros_like(img)
+    red_image[:, :, 0] = R
+
+    green_image = np.zeros_like(img)
+    green_image[:, :, 1] = G
+
+    blue_image = np.zeros_like(img)
+    blue_image[:, :, 2] = B
+
+    plt.figure(figsize=(12, 8))
+
+    plt.subplot(2, 2, 1)
+    plt.imshow(img)
+    plt.title("Исходное изображение")
+    plt.axis("off")
+
+    plt.subplot(2, 2, 2)
+    plt.imshow(red_image)
+    plt.title("Канал R")
+    plt.axis("off")
+
+    plt.subplot(2, 2, 3)
+    plt.imshow(green_image)
+    plt.title("Канал G")
+    plt.axis("off")
+
+    plt.subplot(2, 2, 4)
+    plt.imshow(blue_image)
+    plt.title("Канал B")
+    plt.axis("off")
+
+    plt.tight_layout()
+    plt.show()
+
+    plt.figure(figsize=(12, 8))
+
+    plt.subplot(3, 1, 1)
+    plt.hist(R.ravel(), bins=256, range=(0, 255))
+    plt.title("Гистограмма канала R")
+    plt.xlim(0, 255)
+
+    plt.subplot(3, 1, 2)
+    plt.hist(G.ravel(), bins=256, range=(0, 255))
+    plt.title("Гистограмма канала G")
+    plt.xlim(0, 255)
+
+    plt.subplot(3, 1, 3)
+    plt.hist(B.ravel(), bins=256, range=(0, 255))
+    plt.title("Гистограмма канала B")
+    plt.xlim(0, 255)
+
+    plt.tight_layout()
+    plt.show()
 
 
 #Задание 3
@@ -227,16 +288,16 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
-    args = parse_args()
-    image = load_image(args.image)
-    print(f"Размер изображения: {image.shape[1]}x{image.shape[0]} пикселей")
+    # args = parse_args()
+    # image = load_image(args.image)
+    # print(f"Размер изображения: {image.shape[1]}x{image.shape[0]} пикселей")
 
-    tasks = {1: task_1}  # задания 2 и 3 добавить сюда после реализации
-    if args.task not in tasks:
-        print(f"Задание {args.task} пока не реализовано.")
-        return
-    tasks[args.task](image)
-
+    # tasks = {1: task_1}  # задания 2 и 3 добавить сюда после реализации
+    # if args.task not in tasks:
+    #     print(f"Задание {args.task} пока не реализовано.")
+    #     return
+    # tasks[args.task](image)
+    task2("task2.png")
 
 if __name__ == "__main__":
     main()
