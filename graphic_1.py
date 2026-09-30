@@ -8,6 +8,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
 
+from matplotlib.colors import rgb_to_hsv as mpl_rgb_to_hsv
+from matplotlib.widgets import Slider, Button
+
 # Каталог, куда складываются результаты работы программы.
 OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output")
 
@@ -272,7 +275,134 @@ def task2(image_path):
 
 #Задание 3
 
+def rgb_to_hsv(RGB_matrix: np.ndarray) -> np.ndarray:
+    rgb = RGB_matrix.astype(np.float64) / 255.0
+    r, g, b = rgb[:, :, 0], rgb[:, :, 1], rgb[:, :, 2]
 
+    MAX = np.max(rgb, axis=2)
+    MIN = np.min(rgb, axis=2)
+    delta = MAX - MIN
+
+    V = MAX
+
+    S = np.zeros_like(MAX)
+    mask_max_nonzero = MAX > 0
+    S[mask_max_nonzero] = 1 - MIN[mask_max_nonzero] / MAX[mask_max_nonzero]
+
+    H = np.zeros_like(MAX)
+
+    condition_1 = (delta > 0) & (MAX == r) & (g >= b)
+    H[condition_1] = 60 * (g[condition_1] - b[condition_1]) / delta[condition_1] + 0
+
+    condition_2 = (delta > 0) & (MAX == r) & (g < b)
+    H[condition_2] = 60 * (g[condition_2] - b[condition_2]) / delta[condition_2] + 360
+
+    condition_3 = (delta > 0) & (MAX == g)
+    H[condition_3] = 60 * (b[condition_3] - r[condition_3]) / delta[condition_3] + 120
+
+    condition_4 = (delta > 0) & (MAX == b)
+    H[condition_4] = 60 * (r[condition_4] - g[condition_4]) / delta[condition_4] + 240
+
+    return np.stack([H, S, V], axis=2)
+
+
+def hsv_to_rgb(HSV_matrix: np.ndarray) -> np.ndarray:
+    H, S, V = HSV_matrix[:, :, 0], HSV_matrix[:, :, 1], HSV_matrix[:, :, 2]
+
+    Hi = (np.floor(H / 60).astype(int)) % 6
+    Vmin = (1 - S) * V
+    a = (V - Vmin) * ((H % 60) / 60)
+    Vinc = Vmin + a
+    Vdec = V - a
+
+    R = np.zeros_like(H)
+    G = np.zeros_like(H)
+    B = np.zeros_like(H)
+
+    case_0 = Hi == 0
+    R[case_0], G[case_0], B[case_0] = V[case_0], Vinc[case_0], Vmin[case_0]
+
+    case_1 = Hi == 1
+    R[case_1], G[case_1], B[case_1] = Vdec[case_1], V[case_1], Vmin[case_1]
+
+    case_2 = Hi == 2
+    R[case_2], G[case_2], B[case_2] = Vmin[case_2], V[case_2], Vinc[case_2]
+
+    case_3 = Hi == 3
+    R[case_3], G[case_3], B[case_3] = Vmin[case_3], Vdec[case_3], V[case_3]
+
+    case_4 = Hi == 4
+    R[case_4], G[case_4], B[case_4] = Vinc[case_4], Vmin[case_4], V[case_4]
+
+    case_5 = Hi == 5
+    R[case_5], G[case_5], B[case_5] = V[case_5], Vmin[case_5], Vdec[case_5]
+
+    rgb = np.stack([R, G, B], axis=2)
+    return np.clip(np.round(rgb * 255), 0, 255).astype(np.uint8)
+
+
+def compare_with_matplotlib(image: np.ndarray) -> None:
+    own = rgb_to_hsv(image)
+    reference = mpl_rgb_to_hsv(image.astype(np.float64) / 255.0)
+
+    own_h = own[:, :, 0] / 360.0
+    diff_h = np.abs(own_h - reference[:, :, 0])
+    diff_h = np.minimum(diff_h, 1 - diff_h)
+    diff_s = np.abs(own[:, :, 1] - reference[:, :, 1])
+    diff_v = np.abs(own[:, :, 2] - reference[:, :, 2])
+
+    print("Сравнение со встроенным matplotlib.colors.rgb_to_hsv:")
+    print(f"  H: максимальное расхождение {diff_h.max():.6f}")
+    print(f"  S: максимальное расхождение {diff_s.max():.6f}")
+    print(f"  V: максимальное расхождение {diff_v.max():.6f}")
+
+
+def run_interactive(image: np.ndarray) -> None:
+    base_hsv = rgb_to_hsv(image)
+
+    fig, ax = plt.subplots()
+    plt.subplots_adjust(bottom=0.35)
+    display = ax.imshow(image)
+    ax.axis("off")
+    ax.set_title("Задание 3. RGB <-> HSV")
+
+    ax_h = plt.axes([0.25, 0.20, 0.5, 0.03])
+    ax_s = plt.axes([0.25, 0.15, 0.5, 0.03])
+    ax_v = plt.axes([0.25, 0.10, 0.5, 0.03])
+    ax_save = plt.axes([0.4, 0.02, 0.2, 0.05])
+
+    slider_h = Slider(ax_h, "Hue, сдвиг", -180, 180, valinit=0)
+    slider_s = Slider(ax_s, "Saturation, x", 0.0, 2.0, valinit=1.0)
+    slider_v = Slider(ax_v, "Value, x", 0.0, 2.0, valinit=1.0)
+    button_save = Button(ax_save, "Сохранить")
+
+    def current_rgb() -> np.ndarray:
+        hsv = base_hsv.copy()
+        hsv[:, :, 0] = (hsv[:, :, 0] + slider_h.val) % 360
+        hsv[:, :, 1] = np.clip(hsv[:, :, 1] * slider_s.val, 0, 1)
+        hsv[:, :, 2] = np.clip(hsv[:, :, 2] * slider_v.val, 0, 1)
+        return hsv_to_rgb(hsv)
+
+    def update(_) -> None:
+        display.set_data(current_rgb())
+        fig.canvas.draw_idle()
+
+    def save(_) -> None:
+        path = os.path.join(ensure_output_dir(), "task3_result.png")
+        Image.fromarray(current_rgb()).save(path)
+        print(f"Сохранено: {path}")
+
+    slider_h.on_changed(update)
+    slider_s.on_changed(update)
+    slider_v.on_changed(update)
+    button_save.on_clicked(save)
+
+    plt.show()
+
+
+def task_3(image: np.ndarray) -> None:
+    compare_with_matplotlib(image)
+    run_interactive(image)
 
 #начало
 
@@ -288,16 +418,19 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
-    # args = parse_args()
-    # image = load_image(args.image)
-    # print(f"Размер изображения: {image.shape[1]}x{image.shape[0]} пикселей")
+    args = parse_args()
+    image = load_image(args.image)
+    print(f"Размер изображения: {image.shape[1]}x{image.shape[0]} пикселей")
 
-    # tasks = {1: task_1}  # задания 2 и 3 добавить сюда после реализации
-    # if args.task not in tasks:
-    #     print(f"Задание {args.task} пока не реализовано.")
-    #     return
-    # tasks[args.task](image)
+    tasks = {1: task_1, 3: task_3}  # задания 2 и 3 добавить сюда после реализации
+    if args.task not in tasks:
+        print(f"Задание {args.task} пока не реализовано.")
+        return
+    tasks[args.task](image)
+    task_1(load_image("cat.avif"))
     task2("task2.png")
+
+    task_3(load_image("task3.png"))
 
 if __name__ == "__main__":
     main()
